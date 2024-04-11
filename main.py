@@ -2,7 +2,24 @@ import svgwrite
 import math
 import numpy as np
 import random
-from utils.vega_parser import parse_vega_lite_json
+from vega_datasets import data
+from vega_datasets import local_data
+from utils.vega_parser import parse_vega_lite_json, parse_vega_scene_graph
+
+import os
+import json
+from tqdm import tqdm
+from PIL import Image
+# import utils_gen
+
+def min_max_scaling(data, new_min, new_max):
+    old_min = min(data)
+    old_max = max(data)
+    scaled_data = []
+    for value in data:
+        scaled_value = ((value - old_min) / (old_max - old_min)) * (new_max - new_min) + new_min
+        scaled_data.append(scaled_value)
+    return scaled_data
 
 def add_axis(dwg, start_x, start_y, end_x, end_y, axis_type='x', label_values=None, label_positions=None, axis_title=None, title_height=50, tick_length=7):
     # Add main axis line
@@ -16,7 +33,7 @@ def add_axis(dwg, start_x, start_y, end_x, end_y, axis_type='x', label_values=No
 
             if axis_type == 'x':
                 text = svgwrite.text.Text(label, insert=(pos, start_y + 25), text_anchor="middle", font_size=14)
-                rect_x = pos - (len(label) * font_size_factor + 10) / 2
+                rect_x = pos - (len(str(label)) * font_size_factor + 10) / 2
                 rect_y = start_y + 10
             else:  # For y-axis
                 text = svgwrite.text.Text(label, insert=(start_x - 27.5, pos + 7.5), text_anchor="end", font_size=14)
@@ -24,7 +41,7 @@ def add_axis(dwg, start_x, start_y, end_x, end_y, axis_type='x', label_values=No
                 rect_y = pos - 7.5
 
             dwg.add(text)
-            rect_width = len(label) * font_size_factor + 10
+            rect_width = len(str(label)) * font_size_factor + 10
 
             if axis_title is not None:
                 # Add axis title
@@ -46,7 +63,7 @@ def add_axis(dwg, start_x, start_y, end_x, end_y, axis_type='x', label_values=No
             dwg.add(svgwrite.shapes.Line(start=(start_x, pos), end=(start_x - tick_length, pos), stroke='black', stroke_width=3))
 
 
-def create_line_graph(x_values, y_values_list, title, labels, x_axis_title='X-axis', y_axis_title='Y-axis', width=400, height=300):
+def create_line_graph(x_values, y_values_list, title, index, x_labels, y_labels, labels, x_axis_title='X-axis', y_axis_title='Y-axis', width=400, height=300):
     # Define graph parameters
     legend_width = 120
     title_height = 50
@@ -62,19 +79,19 @@ def create_line_graph(x_values, y_values_list, title, labels, x_axis_title='X-ax
     axis_start_y, axis_end_y = height - padding_bottom - 30 + title_height, padding_bottom + title_height
     height -= 30
 
-    num_labels_x = 4
+    num_labels_x = len(x_labels)
     x_label_positions = [axis_start_x + i * (width - padding_left - 10) // (num_labels_x + 1) for i in range(1, num_labels_x + 1)]
     x_label_values = [str(round(float(x_min + i * (x_max - x_min) / (num_labels_x + 1)))) for i in range(1, num_labels_x + 1)]
 
-    num_labels_y = 3
+    num_labels_y = len(y_labels)
     y_label_positions = [axis_start_y - i * (height - padding_bottom - 10) // (num_labels_y + 2) for i in range(1, num_labels_y + 1)]
     y_label_values = [str(round(float(y_min + i * (y_max - y_min) / (num_labels_y + 2)), 1)) for i in range(1, num_labels_y + 1)]
 
-    add_axis(dwg, axis_start_x, axis_start_y, axis_end_x, axis_start_y, 'x', x_label_values, x_label_positions, x_axis_title, title_height)
-    add_axis(dwg, axis_start_x, axis_start_y, axis_start_x, axis_end_y, 'y', y_label_values, y_label_positions, y_axis_title, title_height)
+    add_axis(dwg, axis_start_x, axis_start_y, axis_end_x, axis_start_y, 'x', x_labels, x_label_positions, x_axis_title, title_height)
+    add_axis(dwg, axis_start_x, axis_start_y, axis_start_x, axis_end_y, 'y', y_labels, y_label_positions, y_axis_title, title_height)
 
-    dwg.add(svgwrite.text.Text(title, insert=(width / 2, title_height), text_anchor="middle", font_size=20))
-    title_box = svgwrite.shapes.Rect(insert=(width / 2 - len(title) * 5, 30), size=(len(title) * 10, 30), stroke='black', fill='none')
+    dwg.add(svgwrite.text.Text(title, insert=(width / 2, title_height), text_anchor="middle", font_size=15))
+    title_box = svgwrite.shapes.Rect(insert=(width / 2 - len(title) * 4, 30), size=(len(title) * 8, 30), stroke='black', fill='none')
     dwg.add(title_box)
 
     # Plot lines
@@ -83,8 +100,7 @@ def create_line_graph(x_values, y_values_list, title, labels, x_axis_title='X-ax
 
     for i, y_values in enumerate(y_values_list):
         scaled_x = [padding_left + (width - padding_left - 10) * (x - x_min) / (x_max - x_min) for x in x_values]
-        scaled_y = [height - padding_bottom + title_height - ((height - padding_bottom - axis_end_y + title_height - 10) * (y - y_min)) / (y_max - y_min) for y in y_values]
-
+        scaled_y = min_max_scaling(y_values, y_label_positions[-1], y_label_positions[0])
         points = [(float(x), float(y)) for x, y in zip(scaled_x, scaled_y)]
         polyline = dwg.polyline(points=points, fill='none', stroke=colors[i], stroke_width=2)
 
@@ -96,24 +112,25 @@ def create_line_graph(x_values, y_values_list, title, labels, x_axis_title='X-ax
         dwg.add(polyline)
 
         # Legend entries with different line styles
-        legend_start_x = axis_end_x + 30
-        legend_start_y = axis_end_y + 30 * i
-        legend_line_start_x = legend_start_x - 10
+        if (len(y_values_list) > 1):
+            legend_start_x = axis_end_x + 30
+            legend_start_y = axis_end_y + 30 * i
+            legend_line_start_x = legend_start_x - 10
 
-        if line_styles[i] == 'dash':
-            dwg.add(svgwrite.shapes.Line(start=(legend_line_start_x, legend_start_y + 5), end=(legend_line_start_x + 40, legend_start_y + 5),
-                                        stroke=colors[i], stroke_width=2, stroke_dasharray="8,4"))
-        elif line_styles[i] == 'dot':
-            dwg.add(svgwrite.shapes.Line(start=(legend_line_start_x, legend_start_y + 5), end=(legend_line_start_x + 40, legend_start_y + 5),
-                                        stroke=colors[i], stroke_width=2, stroke_dasharray="2,4"))
-        else:
-            dwg.add(svgwrite.shapes.Line(start=(legend_line_start_x, legend_start_y + 5), end=(legend_line_start_x + 40, legend_start_y + 5),
-                                        stroke=colors[i], stroke_width=2))
+            if line_styles[i] == 'dash':
+                dwg.add(svgwrite.shapes.Line(start=(legend_line_start_x, legend_start_y + 5), end=(legend_line_start_x + 40, legend_start_y + 5),
+                                            stroke=colors[i], stroke_width=2, stroke_dasharray="8,4"))
+            elif line_styles[i] == 'dot':
+                dwg.add(svgwrite.shapes.Line(start=(legend_line_start_x, legend_start_y + 5), end=(legend_line_start_x + 40, legend_start_y + 5),
+                                            stroke=colors[i], stroke_width=2, stroke_dasharray="2,4"))
+            else:
+                dwg.add(svgwrite.shapes.Line(start=(legend_line_start_x, legend_start_y + 5), end=(legend_line_start_x + 40, legend_start_y + 5),
+                                            stroke=colors[i], stroke_width=2))
 
-        dwg.add(svgwrite.text.Text(labels[i], insert=(legend_start_x + 20, legend_start_y), text_anchor="start", font_size=14))
+            dwg.add(svgwrite.text.Text(labels[i], insert=(legend_start_x + 20, legend_start_y), text_anchor="start", font_size=14))
 
     # Save SVG file
-    dwg.save()
+    dwg.saveas("svg_charts\\" + str(index) + ".svg")
 
 
 
@@ -303,3 +320,13 @@ def create_scatter_plot(x_values_list, y_values_list, title, titles, symbols, x_
     # Save SVG file
     dwg.save()
 
+success = []
+
+for i in range(1, 8823):
+    try:
+        x_values, y_values, title, x_labels, y_labels, x_axis_title, y_axis_title = parse_vega_scene_graph("scenegraphs/" + str(i) + ".json")
+        create_line_graph(x_values, [y_values], title, i, x_labels, y_labels, labels=[1, 2, 3], x_axis_title=x_axis_title, y_axis_title=y_axis_title)
+        success.append(i)
+    except:
+        print("Index", i, "failed")
+print(success)

@@ -60,3 +60,71 @@ def parse_vega_lite_json(file_path):
         # Call create_line_graph function with extracted data
         return(x_values, y_values, title, y_field, x_axis_title, y_axis_title)
 
+def parse_vega_scene_graph(file_path):
+    with open(file_path, 'r') as file:
+        vega_spec = json.load(file)
+
+        # Extracting data from the Vega scene graph
+        data_values = []
+        x_values = []
+        y_values_list = []
+        title = None
+        x_axis_title = None
+        y_axis_title = None
+        x_labels = []
+        y_labels = []
+        def extract_data(item):
+            nonlocal data_values, x_values, y_values_list, title, x_axis_title, y_axis_title
+            if 'items' in item:
+                for sub_item in item['items']:
+                    if sub_item.get("marktype") == "line":
+                        for mark_item in sub_item.get("items", []):
+                            if "x" in mark_item and "y" in mark_item:
+                                data_values.append(mark_item)
+                                x_values.append(mark_item['x'])
+                                y_values_list.append(mark_item['y'])
+                    elif sub_item.get("marktype") == "rect":
+                        return(0)
+                        for mark_item in sub_item.get("items", []):
+                            if "description" in mark_item and "y" in mark_item:
+                                data_values.append(mark_item['description'])
+                                x_values.append(mark_item['description'])
+                                y_values_list.append(mark_item['y'])
+                    elif sub_item.get("role") == "title":
+                        title_item = sub_item.get("items", [])[0]
+                        title_item = title_item.get("items", [])[0]
+                        if title_item.get("role") == "title-text":
+                            title_item = title_item.get("items")[0]
+                            title = title_item.get("text")[0]
+                    elif sub_item.get("role") == "axis":
+                        axis_items = sub_item.get("items")
+                        axis_items = axis_items[0].get("items", [])
+                        for axis_item in axis_items:
+                            if axis_item.get("role") == "axis-title":
+                                if axis_item.get("text"):
+                                    if sub_item.get("orient") == "bottom":
+                                        x_axis_title = axis_item.get("text")
+                                    elif sub_item.get("orient") == "left":
+                                        y_axis_title = axis_item.get("text")
+                            elif axis_item.get("role") == "axis-label":
+                                for item in axis_item.get("items", []):
+                                    if item.get("x") < 0:
+                                        y_labels.append(item.get("text"))
+                                    else:
+                                        x_labels.append(item.get("text"))
+                                    
+
+
+                    extract_data(sub_item)
+
+        if extract_data(vega_spec) == 0:
+            return 0, 0, 0, 0, 0, 0, 0
+        y_labels_int = [int(y) for y in y_labels]
+        y_max = max(y_values_list)
+        y_min = min(y_values_list)
+        actual_min = ((200 - y_max) / 200) * max(y_labels_int)
+        y_labels = []
+        for i in range(4):
+            y_labels.append(str(round(actual_min + i * ((max(y_labels_int) - actual_min) / 4))))
+        return x_values, y_values_list, title, x_labels, y_labels, x_axis_title, y_axis_title
+
