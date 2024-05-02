@@ -84,11 +84,11 @@ def parse_vega_scene_graph(file_path):
                                 x_values.append(mark_item['x'])
                                 y_values_list.append(mark_item['y'])
                     elif sub_item.get("marktype") == "rect":
-                        return(0)
                         for mark_item in sub_item.get("items", []):
                             if "description" in mark_item and "y" in mark_item:
-                                data_values.append(mark_item['description'])
-                                x_values.append(mark_item['description'])
+                                # print(mark_item['description'].split(";")[0].split(": ")[1])
+                                data_values.append(mark_item['description'].split(";")[0].split(": ")[1])
+                                x_values.append(mark_item['description'].split(";")[0].split(": ")[1])
                                 y_values_list.append(mark_item['y'])
                     elif sub_item.get("role") == "title":
                         title_item = sub_item.get("items", [])[0]
@@ -101,11 +101,11 @@ def parse_vega_scene_graph(file_path):
                         axis_items = axis_items[0].get("items", [])
                         for axis_item in axis_items:
                             if axis_item.get("role") == "axis-title":
-                                if axis_item.get("text"):
-                                    if sub_item.get("orient") == "bottom":
-                                        x_axis_title = axis_item.get("text")
-                                    elif sub_item.get("orient") == "left":
-                                        y_axis_title = axis_item.get("text")
+                                if axis_item.get("items")[0]:
+                                    if axis_item.get("items")[0].get("baseline") == "bottom":
+                                        y_axis_title = axis_item.get("items")[0].get("text")
+                                    elif axis_item.get("items")[0].get("baseline") == "top":
+                                        x_axis_title = axis_item.get("items")[0].get("text")
                             elif axis_item.get("role") == "axis-label":
                                 for item in axis_item.get("items", []):
                                     if item.get("x") < 0:

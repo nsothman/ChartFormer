@@ -47,11 +47,11 @@ def add_axis(dwg, start_x, start_y, end_x, end_y, axis_type='x', label_values=No
                 # Add axis title
                 if axis_type == 'x':
                     dwg.add(svgwrite.text.Text(axis_title, insert=(end_x / 2 + (len(axis_title) * 5), end_y + 5 + title_height), text_anchor="end", font_size=16))
-                    x_axis_box = svgwrite.shapes.Rect(insert=(end_x / 2 - len(axis_title) * 5 + 10, end_y - 15 + title_height), size=(len(axis_title) * 10, 30), stroke='black', fill='none')
+                    x_axis_box = svgwrite.shapes.Rect(insert=(end_x / 2 - len(axis_title) * 7 + 10, end_y - 15 + title_height), size=(len(axis_title) * 10, 30), stroke='black', fill='none')
                     dwg.add(x_axis_box)
                 else:  # For y-axis
                     dwg.add(svgwrite.text.Text(axis_title, insert=(start_x - 40, 35 + title_height), text_anchor="start", font_size=16))
-                    y_axis_box = svgwrite.shapes.Rect(insert=(start_x - 65, 15 + title_height), size=(len(axis_title) * 10, 30), stroke='black', fill='none')
+                    y_axis_box = svgwrite.shapes.Rect(insert=(start_x - 50, 15 + title_height), size=(len(axis_title) * 10, 30), stroke='black', fill='none')
                     dwg.add(y_axis_box)
 
             dwg.add(svgwrite.shapes.Rect(insert=(rect_x, rect_y), size=(rect_width, 20), stroke='black', fill='none'))
@@ -91,7 +91,7 @@ def create_line_graph(x_values, y_values_list, title, index, x_labels, y_labels,
     add_axis(dwg, axis_start_x, axis_start_y, axis_start_x, axis_end_y, 'y', y_labels, y_label_positions, y_axis_title, title_height)
 
     dwg.add(svgwrite.text.Text(title, insert=(width / 2, title_height), text_anchor="middle", font_size=15))
-    title_box = svgwrite.shapes.Rect(insert=(width / 2 - len(title) * 4, 30), size=(len(title) * 8, 30), stroke='black', fill='none')
+    title_box = svgwrite.shapes.Rect(insert=(width / 2 - len(title) * 4 - 10, 30), size=(len(title) * 9, 30), stroke='black', fill='none')
     dwg.add(title_box)
 
     # Plot lines
@@ -130,7 +130,7 @@ def create_line_graph(x_values, y_values_list, title, index, x_labels, y_labels,
             dwg.add(svgwrite.text.Text(labels[i], insert=(legend_start_x + 20, legend_start_y), text_anchor="start", font_size=14))
 
     # Save SVG file
-    dwg.saveas("svg_charts\\" + str(index) + ".svg")
+    dwg.saveas("line_charts\\svg_charts\\" + str(index) + ".svg")
 
 
 
@@ -188,14 +188,14 @@ def create_bar_chart(x_values, y_values_list, title, labels, x_axis_title='X-axi
             dwg.add(line)
 
         # Legend entry for bar charts
-        legend_start_x = axis_end_x + 30  # Adjusted x-coordinate for legend
-        legend_start_y = axis_end_y + 30 * i  # Y-coordinate for the legend items
-        legend_line_start_x = legend_start_x - 10  # X-coordinate for the legend lines
+        # legend_start_x = axis_end_x + 30  # Adjusted x-coordinate for legend
+        # legend_start_y = axis_end_y + 30 * i  # Y-coordinate for the legend items
+        # legend_line_start_x = legend_start_x - 10  # X-coordinate for the legend lines
 
-        dwg.add(svgwrite.shapes.Line(start=(legend_line_start_x, legend_start_y + 5), end=(legend_line_start_x + 40, legend_start_y + 5),
-                                    stroke='#555555', stroke_width=4))
+        # dwg.add(svgwrite.shapes.Line(start=(legend_line_start_x, legend_start_y + 5), end=(legend_line_start_x + 40, legend_start_y + 5),
+        #                             stroke='#555555', stroke_width=4))
 
-        dwg.add(svgwrite.text.Text(labels[i], insert=(legend_start_x + 20, legend_start_y), text_anchor="start", font_size=14))
+        # dwg.add(svgwrite.text.Text(labels[i], insert=(legend_start_x + 20, legend_start_y), text_anchor="start", font_size=14))
 
     # Save SVG file
     dwg.save()
@@ -325,6 +325,8 @@ success = []
 for i in range(1, 8823):
     try:
         x_values, y_values, title, x_labels, y_labels, x_axis_title, y_axis_title = parse_vega_scene_graph("scenegraphs/" + str(i) + ".json")
+        if (isinstance(x_values[0], str)):
+            create_bar_chart(x_values, y_values, title, x_labels, x_axis_title, y_axis_title)
         create_line_graph(x_values, [y_values], title, i, x_labels, y_labels, labels=[1, 2, 3], x_axis_title=x_axis_title, y_axis_title=y_axis_title)
         success.append(i)
     except:
