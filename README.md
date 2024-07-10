@@ -1,6 +1,8 @@
 
 # ChartFormer
 
+[**Download Dataset 🤗**](https://huggingface.co/datasets/anas-osman/ChartFormer) | [**Paper 📄**](https://doi.org/10.1007/978-3-031-62846-7_36)
+
 ## Introduction
 
 ChartFormer is a transformative AI model designed to convert raster chart images into tactile-accessible Scalable Vector Graphics (SVGs). This tool aims to make complex data visualizations accessible for the Blind and Visually Impaired (BVI) community, facilitating interaction through tactile and audio descriptions.
